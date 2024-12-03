@@ -1,0 +1,46 @@
+// Function definitions
+double add() {
+    return 5 + 7;
+}
+
+void some()
+{
+   a = 5+8;
+   prints("This is my name");
+   printd(a);
+}
+
+double multiply() {
+    a=3;
+    b=4;
+    prints("Multiplying the values: ");
+    printd(a);
+    prints("and ");
+    printd(b);
+    return a * b;
+}
+
+// Function calls and assignments
+a = add();
+prints("Result of add(): ");
+printd(a);
+
+b = multiply();
+prints("Result of multiply(): ");
+printd(b);
+
+some();
+
+
+
+c = 5.9 + 1.3;
+prints("c = 5.9 + 1.3 = ");
+printd(c);
+
+d = c + 9;
+prints("d = c + 9 = ");
+printd(d);
+
+e = c * a / (c - 3);
+prints("e = c * a / (c - 3) = ");
+printd(e);
