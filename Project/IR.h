@@ -3,6 +3,8 @@
 #include <map>
 #include <vector>
 #include <functional>
+#include <fstream>
+#include <sstream>
 
 // Symbol table data structure
 static std::map<std::string, double> globalSymbolTable;
@@ -18,6 +20,134 @@ static std::map<std::string, FunctionBody> functionTable;
 
 // Current function being defined
 static std::string currentFunction = "";
+
+
+class CodeGenerator {
+private:
+    std::ofstream outputFile;
+    std::stringstream functionDefinitions;
+    std::stringstream mainFunctionBody;
+    std::vector<std::string> functionNames;
+    bool hasMainFunction;
+
+public:
+    CodeGenerator() : hasMainFunction(false) {}
+
+    void startGeneration(const std::string& filename = "output.c") {
+        outputFile.open(filename);
+        if (!outputFile.is_open()) {
+            fprintf(stderr, "Error: Could not open output file %s\n", filename.c_str());
+            exit(EXIT_FAILURE);
+        }
+
+        // Standard header
+        outputFile << "#include <stdio.h>\n\n";
+        
+        // Ensure main function is created
+        startMainFunction();
+    }
+
+    void addFunctionDefinition(const std::string& functionName, bool hasReturnValue) {
+        // Avoid duplicate function definitions
+        if (std::find(functionNames.begin(), functionNames.end(), functionName) != functionNames.end()) {
+            return;
+        }
+        functionNames.push_back(functionName);
+
+        // Store function definition header
+        if (hasReturnValue) {
+            functionDefinitions << "double " << functionName << "() {\n";
+        } else {
+            functionDefinitions << "void " << functionName << "() {\n";
+        }
+    }
+
+    void addFunctionStatement(const std::string& statement) {
+        functionDefinitions << "    " << statement << "\n";
+        fprintf(stderr, "addFunctionStatement : %s\n", statement.c_str());
+    }
+
+    void closeFunctionDefinition() {
+        functionDefinitions << "}\n\n";
+    }
+
+    void startMainFunction() {
+        if (!hasMainFunction) {
+            mainFunctionBody.str(""); // Clear any existing content
+            mainFunctionBody << "int main() {\n";
+            hasMainFunction = true;
+        }
+    }
+
+    void addMainStatement(const std::string& statement) {
+        mainFunctionBody << "    " << statement << "\n";
+        fprintf(stderr, "addMainStatement : %s\n", statement.c_str());
+    }
+
+    void finalize() {
+        if (hasMainFunction) {
+            mainFunctionBody << "    return 0;\n";
+            mainFunctionBody << "}\n";
+        }
+
+        // Write function definitions first
+        outputFile << functionDefinitions.str();
+
+        // Write main function
+        outputFile << mainFunctionBody.str();
+
+        outputFile.close();
+        
+        // Print success message
+        printf("Code generation completed. Output written to output.c\n");
+    }
+
+    void translatePrints(const std::string& str) {
+        std::string statement = "printf(" + str + ");\n";
+        if (!currentFunction.empty()) {
+            addFunctionStatement(statement);
+        } else {
+            addMainStatement(statement);
+        }
+    }
+
+    void translatePrintd(const std::string& expr) {
+        std::string statement = "printf(\"%f\\n\", " + expr + ");\n";
+        if (!currentFunction.empty()) {
+            addFunctionStatement(statement);
+        } else {
+            addMainStatement(statement);
+        }
+    }
+
+    void translateAssignment(const std::string& identifier, const std::string& expr) {
+        std::string statement = "double " + identifier + " = " + expr + ";\n";
+        if (!currentFunction.empty()) {
+            addFunctionStatement(statement);
+        } else {
+            addMainStatement(statement);
+        }
+    }
+
+    void translateReturn(const std::string& expr) {
+        std::string statement = "return " + expr + ";\n";
+        addFunctionStatement(statement);
+    }
+
+    void translateFunctionCall(const std::string& funcName) {
+        std::string statement = funcName + "();\n";
+        if (!currentFunction.empty()) {
+            addFunctionStatement(statement);
+        } else {
+            addMainStatement(statement);
+        }
+    }
+};
+
+// Global code generator instance
+static CodeGenerator codeGenerator;
+
+
 
 double performBinaryOperation(double lhs, double rhs, int op) {
     switch(op) {

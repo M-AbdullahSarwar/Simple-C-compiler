@@ -2,6 +2,7 @@
     #include <stdio.h>
     #include <stdlib.h>
     #include "IR.h"
+    //#include "CodeGenerator.h"
     
     extern int yyparse();
     extern int yylex();
@@ -49,16 +50,34 @@ statement:
     | return_statement
     ;
 
-prints: tok_prints '(' tok_string_literal ')' ';'   { wrapPrints($3); }
+prints: tok_prints '(' tok_string_literal ')' ';'   
+{ 
+	wrapPrints($3); 
+	printf("Translating prints: %s\n", $3);
+	codeGenerator.translatePrints($3);
+}
 
-printd: tok_printd '(' expression ')' ';'  { wrapPrintd($3); }
+printd: tok_printd '(' expression ')' ';'  
+{ 
+	wrapPrintd($3); 
+	printf("Translating printd: %f\n", $3);
+	char buffer[50];
+    	snprintf(buffer, sizeof(buffer), "%f", $3);
+    	codeGenerator.translatePrintd(buffer);
+}
 
 term:   tok_identifier                    { $$ = getValueForIdentifier($1); }
     | tok_double_literal                  { $$ = $1; }
     | function_call                       { $$ = $1; }
     ;
 
-assignment:  tok_identifier '=' expression ';'  { wrapAssignment($1, $3); }
+assignment:  tok_identifier '=' expression ';'  
+{ 
+	wrapAssignment($1, $3); 
+	char buffer[50];
+    	snprintf(buffer, sizeof(buffer), "%f", $3);
+    	codeGenerator.translateAssignment($1, buffer);
+}
 
 expression: term
     | expression '+' expression           { $$ = performBinaryOperation($1, $3, '+'); }
@@ -69,10 +88,26 @@ expression: term
     ;	   
 
 function_definition:
-    tok_void tok_identifier '(' ')' '{' { startFunctionDefinition($2, false); } statement_list '}'
-    { endFunctionDefinition(); }
-    | tok_double tok_identifier '(' ')' '{' { startFunctionDefinition($2, true); } statement_list '}'
-    { endFunctionDefinition(); }
+    tok_void tok_identifier '(' ')' '{'	
+    { 
+    	startFunctionDefinition($2, false); 
+    	codeGenerator.addFunctionDefinition($2, false); 
+    } 
+    statement_list '}'
+    { 
+    	endFunctionDefinition(); 
+    	codeGenerator.closeFunctionDefinition();
+    }
+    | tok_double tok_identifier '(' ')' '{' 
+    { 
+    	startFunctionDefinition($2, true); 
+    	codeGenerator.addFunctionDefinition($2, true);
+    } 
+    statement_list '}'
+    { 
+    	endFunctionDefinition(); 
+    	codeGenerator.closeFunctionDefinition();
+    }
     ;
 
 statement_list:
@@ -81,11 +116,21 @@ statement_list:
     ;
 
 function_call:
-    tok_identifier '(' ')'                { $$ = callFunction($1); }
+    tok_identifier '(' ')'                
+    { 
+    	$$ = callFunction($1); 
+    	codeGenerator.translateFunctionCall($1);
+    }
     ;
 
 return_statement:
-    tok_return expression ';'             { wrapReturn($2); }
+    tok_return expression ';'             
+    { 
+    	wrapReturn($2); 
+    	char buffer[50];
+    	snprintf(buffer, sizeof(buffer), "%f", $2);
+    	codeGenerator.translateReturn(buffer);
+    }
     ;
 
 %%
@@ -104,7 +149,14 @@ int main(int argc, char** argv) {
         yyin = stdin;
     }
     
+    printf("Parsing started. Initializing code generation.\n");
+    codeGenerator.startGeneration(); 
+    printf("Code generation started.\n");
+    
     int parserResult = yyparse();
+    
+    // Finalize code generation after parsing is complete
+    codeGenerator.finalize();
     
     return EXIT_SUCCESS;
 }
